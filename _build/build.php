@@ -77,6 +77,21 @@ use SymfonyDocsBuilder\DocBuilder;
             }
             copy(__DIR__.'/dark-mode.css', $darkModeCssOutputPath);
 
+            // copy the "mark as read" script into the build output
+            $lastReadJsRelativePath = 'assets/js/last-read.js';
+            $lastReadJsOutputPath = $outputDir.'/'.$lastReadJsRelativePath;
+            if (!is_dir(dirname($lastReadJsOutputPath))) {
+                mkdir(dirname($lastReadJsOutputPath), 0777, true);
+            }
+            copy(__DIR__.'/last-read.js', $lastReadJsOutputPath);
+
+            // total number of generated pages, shown by the reading-progress indicator on the home page
+            $totalPages = iterator_count(new RegexIterator(
+                new RecursiveIteratorIterator(new RecursiveDirectoryIterator($outputDir)),
+                '/^.+\.html$/i',
+                RegexIterator::MATCH
+            ));
+
             // fix assets URLs to make them absolute (otherwise, they don't work in subdirectories)
             $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($outputDir));
 
@@ -121,6 +136,25 @@ use SymfonyDocsBuilder\DocBuilder;
                         },
                         $htmlContents,
                         1
+                    );
+                }
+
+                // reading-progress indicator, home page only, placed right before the "Quick Tour" section
+                if ('index.html' === $htmlRelativeFilePath && false === strpos($htmlContents, 'id="reading-progress"')) {
+                    $progressHtml = '<div id="reading-progress" class="reading-progress" data-total="'.$totalPages.'">'
+                        .'<span id="reading-progress-text">0/'.$totalPages.' read</span>'
+                        .'<div class="reading-progress-bar"><div id="reading-progress-bar-fill" class="reading-progress-bar-fill" style="width:0%"></div></div>'
+                        .'<span id="reading-progress-percent">0%</span>'
+                        .'</div>';
+                    $htmlContents = str_replace('</h1>', '</h1>'."\n".$progressHtml, $htmlContents);
+                }
+
+                // load the "mark as read" button/script on every page (skip if already injected)
+                if (false === strpos($htmlContents, $lastReadJsRelativePath)) {
+                    $htmlContents = str_replace(
+                        '</body>',
+                        '    <script type="text/javascript" src="'.$baseHref.$lastReadJsRelativePath.'"></script>'."\n".'</body>',
+                        $htmlContents
                     );
                 }
 
