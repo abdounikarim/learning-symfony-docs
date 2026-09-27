@@ -37,7 +37,7 @@ jobs:
                 run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
             -   name: Cache dependencies
-                uses: actions/cache@v3
+                uses: actions/cache@v6
                 with:
                     path: ${{ steps.composercache.outputs.dir }}
                     key: ${{ runner.os }}-composer-${{ hashFiles('_build/composer.lock') }}
@@ -52,10 +52,10 @@ jobs:
                 run: php build.php
 
             -   name: "Setup Pages"
-                uses: actions/configure-pages@v5
+                uses: actions/configure-pages@v6
 
             -   name: "Upload build output"
-                uses: actions/upload-pages-artifact@v3
+                uses: actions/upload-pages-artifact@v5
                 with:
                     path: _build/output
 
@@ -73,4 +73,4 @@ jobs:
         steps:
             -   name: "Deploy to GitHub Pages"
                 id: deployment
-                uses: actions/deploy-pages@v4
+                uses: actions/deploy-pages@v5
