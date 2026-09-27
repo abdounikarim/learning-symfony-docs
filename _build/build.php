@@ -53,6 +53,9 @@ use SymfonyDocsBuilder\DocBuilder;
         $result = (new DocBuilder())->build($buildConfig);
 
         if ($result->isSuccessful()) {
+            // current branch name (e.g. "8.0"), shown next to each page's own title
+            $branchName = trim((string) shell_exec('git -C '.escapeshellarg(__DIR__.'/..').' rev-parse --abbrev-ref HEAD 2>/dev/null'));
+
             // fix assets URLs to make them absolute (otherwise, they don't work in subdirectories)
             $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($outputDir));
 
@@ -71,6 +74,25 @@ use SymfonyDocsBuilder\DocBuilder;
                 $htmlContents = str_replace('href="assets/', 'href="'.$baseHref.'assets/', $htmlContents);
                 $htmlContents = str_replace('src="assets/', 'src="'.$baseHref.'assets/', $htmlContents);
                 $htmlContents = str_replace('<img src="/_images/', '<img src="'.$baseHref.'_images/', $htmlContents);
+
+                // append the branch name after each page's own title, e.g. "Symfony Documentation (8.0)"
+                if ('' !== $branchName) {
+                    $branchSuffix = ' ('.$branchName.')';
+                    $htmlContents = preg_replace_callback(
+                        '/(<h1 id="[^"]*">\s*)((?:(?!<a class="headerlink").)*?)(\s*<a class="headerlink")/s',
+                        function (array $m) use ($branchSuffix): string {
+                            $title = rtrim($m[2]);
+                            // skip if the suffix is already there (avoids stacking on repeated builds)
+                            if ($branchSuffix === substr($title, -\strlen($branchSuffix))) {
+                                return $m[0];
+                            }
+
+                            return $m[1].$title.$branchSuffix.$m[3];
+                        },
+                        $htmlContents,
+                        1
+                    );
+                }
 
                 file_put_contents($htmlFilePath, $htmlContents);
             }
