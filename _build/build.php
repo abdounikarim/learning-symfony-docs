@@ -64,8 +64,14 @@ use SymfonyDocsBuilder\DocBuilder;
                 $subdirLevel = substr_count($htmlRelativeFilePath, '/');
                 $baseHref = str_repeat('../', $subdirLevel);
 
-                $htmlContents = str_replace('<head>', '<head><base href="'.$baseHref.'">', $htmlContents);
-                $htmlContents = str_replace('<img src="/_images/', '<img src="_images/', $htmlContents);
+                // make relative asset URLs work from any subdirectory. Deliberately NOT using a <base> tag for
+                // this: a <base> with a non-empty path silently breaks every plain "#anchor" link on the page
+                // (e.g. every heading's permalink icon), since those then resolve against the base's directory
+                // instead of the current page - sending the browser to a different page entirely.
+                $htmlContents = str_replace('href="assets/', 'href="'.$baseHref.'assets/', $htmlContents);
+                $htmlContents = str_replace('src="assets/', 'src="'.$baseHref.'assets/', $htmlContents);
+                $htmlContents = str_replace('<img src="/_images/', '<img src="'.$baseHref.'_images/', $htmlContents);
+
                 file_put_contents($htmlFilePath, $htmlContents);
             }
 
