@@ -86,13 +86,24 @@
             '.last-read-btn--unread:hover {',
             '    background-color: #e3e5e8;',
             '}',
-            '.last-read-btn--home {',
-            '    background-color: #2980b9;',
-            '    color: #fff;',
+            '.last-read-btn--home,',
+            '.last-read-btn--nav {',
+            '    background-color: transparent;',
+            '    color: inherit;',
             '    text-decoration: none;',
+            '    padding: 0.4em 0.6em;',
+            '    font-size: 1.3em;',
+            '    line-height: 1;',
+            '    box-shadow: none;',
             '}',
-            '.last-read-btn--home:hover {',
-            '    background-color: #24709f;',
+            '.last-read-btn--home:hover,',
+            '.last-read-btn--nav:hover {',
+            '    background-color: rgba(127, 127, 127, 0.15);',
+            '    box-shadow: none;',
+            '}',
+            '.last-read-btn--home:active,',
+            '.last-read-btn--nav:active {',
+            '    box-shadow: none;',
             '}',
             '.last-read-toast {',
             '    position: fixed;',
@@ -163,6 +174,85 @@
 
     function storageKey() {
         return STORAGE_PREFIX + window.location.pathname;
+    }
+
+    // "Previous"/"Next" follow the pages actually visited in this browser tab (like a mini
+    // back/forward history), not the docs' table of contents. Tracked as a path stack + pointer
+    // in sessionStorage, so it's scoped to this tab and cleared when it closes.
+    var NAV_STACK_KEY = 'symfony-docs-nav-stack';
+    var NAV_INTENT_KEY = 'symfony-docs-nav-intent';
+    var NAV_STACK_LIMIT = 50;
+
+    function readNavStack() {
+        try {
+            var parsed = JSON.parse(window.sessionStorage.getItem(NAV_STACK_KEY));
+            if (parsed && Array.isArray(parsed.stack) && 'number' === typeof parsed.pointer) {
+                return parsed;
+            }
+        } catch (e) {
+            // ignore malformed/missing state
+        }
+
+        return { stack: [], pointer: -1 };
+    }
+
+    function writeNavStack(state) {
+        try {
+            window.sessionStorage.setItem(NAV_STACK_KEY, JSON.stringify(state));
+        } catch (e) {
+            // sessionStorage unavailable (e.g. private browsing) - previous/next just won't show
+        }
+    }
+
+    function setNavIntent(intent) {
+        try {
+            window.sessionStorage.setItem(NAV_INTENT_KEY, intent);
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    function takeNavIntent() {
+        try {
+            var intent = window.sessionStorage.getItem(NAV_INTENT_KEY);
+            window.sessionStorage.removeItem(NAV_INTENT_KEY);
+
+            return intent;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // updates the session nav stack for this page load and returns the paths to show
+    // "previous"/"next" buttons for (null when there is nothing to go back/forward to)
+    function updateNavStack() {
+        var state = readNavStack();
+        var currentPath = window.location.pathname;
+        var intent = takeNavIntent();
+
+        if ('prev' === intent && state.pointer > 0) {
+            state.pointer -= 1;
+        } else if ('next' === intent && state.pointer < state.stack.length - 1) {
+            state.pointer += 1;
+        } else if (state.stack[state.pointer] !== currentPath) {
+            // a genuine new navigation: drop any "forward" entries past here, then append
+            state.stack = state.stack.slice(0, state.pointer + 1);
+            state.stack.push(currentPath);
+            state.pointer = state.stack.length - 1;
+
+            if (state.stack.length > NAV_STACK_LIMIT) {
+                var overflow = state.stack.length - NAV_STACK_LIMIT;
+                state.stack = state.stack.slice(overflow);
+                state.pointer -= overflow;
+            }
+        }
+
+        writeNavStack(state);
+
+        return {
+            prevPath: state.pointer > 0 ? state.stack[state.pointer - 1] : null,
+            nextPath: state.pointer < state.stack.length - 1 ? state.stack[state.pointer + 1] : null
+        };
     }
 
     // every page's read status lives in the same origin's localStorage, so any page
@@ -322,22 +412,55 @@
             actions.appendChild(readButton);
         }
 
-        // "Back to home" gets its own row, always below the read/unread row, on every page but the home page itself
+        // one row below the read/unread row: previous (if any) - home (unless this IS home) - next (if any)
         var isHomePage = !!document.getElementById('symfony-documentation');
-        var homeActions = document.getElementById('back-to-home-actions');
-        if (!isHomePage && !homeActions) {
-            homeActions = document.createElement('div');
-            homeActions.id = 'back-to-home-actions';
-            homeActions.className = 'last-read-actions';
-            content.appendChild(homeActions);
+        var pageNav = updateNavStack();
+        var navActions = document.getElementById('page-nav-actions');
+        if (!navActions && (pageNav.prevPath || !isHomePage || pageNav.nextPath)) {
+            navActions = document.createElement('div');
+            navActions.id = 'page-nav-actions';
+            navActions.className = 'last-read-actions';
+            content.appendChild(navActions);
 
-            var homeButton = document.createElement('a');
-            homeButton.id = 'back-to-home-button';
-            var root = siteRootUrl();
-            homeButton.href = (null !== root ? root : '') + 'index.html';
-            homeButton.className = 'last-read-btn last-read-btn--home';
-            homeButton.innerHTML = '🏠 Back to home';
-            homeActions.appendChild(homeButton);
+            if (pageNav.prevPath) {
+                var prevLink = document.createElement('a');
+                prevLink.id = 'page-nav-prev';
+                prevLink.href = pageNav.prevPath;
+                prevLink.className = 'last-read-btn last-read-btn--nav';
+                prevLink.innerHTML = '⬅️';
+                prevLink.setAttribute('aria-label', 'Previous page');
+                prevLink.title = 'Previous page';
+                prevLink.addEventListener('click', function () {
+                    setNavIntent('prev');
+                });
+                navActions.appendChild(prevLink);
+            }
+
+            if (!isHomePage) {
+                var homeButton = document.createElement('a');
+                homeButton.id = 'back-to-home-button';
+                var root = siteRootUrl();
+                homeButton.href = (null !== root ? root : '') + 'index.html';
+                homeButton.className = 'last-read-btn last-read-btn--home';
+                homeButton.innerHTML = '🏠';
+                homeButton.setAttribute('aria-label', 'Back to home');
+                homeButton.title = 'Back to home';
+                navActions.appendChild(homeButton);
+            }
+
+            if (pageNav.nextPath) {
+                var nextLink = document.createElement('a');
+                nextLink.id = 'page-nav-next';
+                nextLink.href = pageNav.nextPath;
+                nextLink.className = 'last-read-btn last-read-btn--nav';
+                nextLink.innerHTML = '➡️';
+                nextLink.setAttribute('aria-label', 'Next page');
+                nextLink.title = 'Next page';
+                nextLink.addEventListener('click', function () {
+                    setNavIntent('next');
+                });
+                navActions.appendChild(nextLink);
+            }
         }
 
         function render() {
