@@ -56,6 +56,12 @@ use SymfonyDocsBuilder\DocBuilder;
             // current branch name (e.g. "8.0"), shown next to each page's own title
             $branchName = trim((string) shell_exec('git -C '.escapeshellarg(__DIR__.'/..').' rev-parse --abbrev-ref HEAD 2>/dev/null'));
 
+            // use the "Monokai Sublime" theme for code blocks instead of the default one
+            $highlightCssOutputPath = $outputDir.'/assets/css/highlightjs.css';
+            if (is_file($highlightCssOutputPath)) {
+                copy(__DIR__.'/vendor/scrivo/highlight.php/styles/monokai-sublime.css', $highlightCssOutputPath);
+            }
+
             // fix assets URLs to make them absolute (otherwise, they don't work in subdirectories)
             $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($outputDir));
 
