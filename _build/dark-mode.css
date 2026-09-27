@@ -1,0 +1,173 @@
+html[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+html[data-theme="dark"] body,
+html[data-theme="dark"] .wy-body-for-nav,
+html[data-theme="dark"] .wy-nav-content-wrap,
+html[data-theme="dark"] .wy-nav-content {
+    background: #1e2124;
+    color: #d4d4d4;
+}
+
+html[data-theme="dark"] .wy-nav-side {
+    background: #16181a;
+}
+
+html[data-theme="dark"] .wy-menu-vertical a {
+    color: #c9c9c9;
+}
+
+html[data-theme="dark"] .wy-menu-vertical a:hover {
+    background: #2a2d31;
+    color: #fff;
+}
+
+html[data-theme="dark"] .wy-menu-vertical li.current > a,
+html[data-theme="dark"] .wy-menu-vertical li.current > a:hover,
+html[data-theme="dark"] .wy-menu-vertical li.on a,
+html[data-theme="dark"] .wy-menu-vertical li.on a:hover {
+    background: #262a2e;
+    color: #fff;
+    border: none;
+}
+
+html[data-theme="dark"] .wy-menu-vertical li.toctree-l2.current > a,
+html[data-theme="dark"] .wy-menu-vertical li.toctree-l3.current > a {
+    background: #1e2124;
+}
+
+html[data-theme="dark"] .rst-content,
+html[data-theme="dark"] .rst-content p,
+html[data-theme="dark"] .rst-content li,
+html[data-theme="dark"] .rst-content dl,
+html[data-theme="dark"] .rst-content dt,
+html[data-theme="dark"] .rst-content dd {
+    color: #d4d4d4;
+}
+
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] h5,
+html[data-theme="dark"] h6 {
+    color: #f2f2f2;
+}
+
+html[data-theme="dark"] .rst-content a,
+html[data-theme="dark"] a {
+    color: #6ab0f3;
+}
+
+html[data-theme="dark"] .rst-content a:hover,
+html[data-theme="dark"] a:hover {
+    color: #93c8f7;
+}
+
+html[data-theme="dark"] .rst-content code,
+html[data-theme="dark"] .rst-content tt,
+html[data-theme="dark"] code {
+    background: #2a2d31;
+    border-color: #3a3d41;
+    color: #e8a87c;
+}
+
+html[data-theme="dark"] .rst-content div[class^="highlight"],
+html[data-theme="dark"] .rst-content pre.literal-block {
+    border-color: #3a3d41;
+}
+
+html[data-theme="dark"] .rst-content table.docutils,
+html[data-theme="dark"] .wy-table {
+    border-color: #3a3d41;
+}
+
+html[data-theme="dark"] .rst-content table.docutils td,
+html[data-theme="dark"] .rst-content table.docutils th,
+html[data-theme="dark"] .wy-table td,
+html[data-theme="dark"] .wy-table th {
+    border-color: #3a3d41;
+    background: #1e2124;
+    color: #d4d4d4;
+}
+
+html[data-theme="dark"] .rst-content table.docutils thead,
+html[data-theme="dark"] .wy-table thead {
+    color: #f2f2f2;
+    background: #262a2e;
+}
+
+html[data-theme="dark"] .wy-alert,
+html[data-theme="dark"] .rst-content .admonition,
+html[data-theme="dark"] .rst-content .admonition-todo {
+    background: #262a2e;
+    color: #d4d4d4;
+}
+
+html[data-theme="dark"] .rst-content .admonition-title {
+    color: #fff;
+}
+
+html[data-theme="dark"] .wy-nav-top {
+    background: #16181a;
+}
+
+html[data-theme="dark"] hr {
+    border-color: #3a3d41;
+}
+
+html[data-theme="dark"] .rst-content blockquote {
+    color: #b0b0b0;
+    border-left-color: #3a3d41;
+}
+
+html[data-theme="dark"] .last-read-status {
+    background: #1e3a2a;
+    color: #7fd99f;
+}
+
+html[data-theme="dark"] .last-read-btn--unread {
+    background-color: #2a2d31;
+    color: #d4d4d4;
+}
+
+html[data-theme="dark"] .last-read-btn--unread:hover {
+    background-color: #363a3f;
+}
+
+/* light/dark toggle button, present on every page */
+.theme-toggle-btn {
+    position: fixed;
+    top: 1em;
+    right: 1.2em;
+    z-index: 10000;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.65em 1.3em;
+    border: none;
+    border-radius: 6px;
+    background: #2980b9;
+    color: #fff;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
+}
+
+.theme-toggle-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+}
+
+.theme-toggle-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+html[data-theme="dark"] .theme-toggle-btn {
+    background: #f4c542;
+    color: #1e2124;
+}

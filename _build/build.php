@@ -62,6 +62,21 @@ use SymfonyDocsBuilder\DocBuilder;
                 copy(__DIR__.'/vendor/scrivo/highlight.php/styles/monokai-sublime.css', $highlightCssOutputPath);
             }
 
+            // copy the light/dark theme toggle script and its stylesheet into the build output
+            $themeToggleJsRelativePath = 'assets/js/theme-toggle.js';
+            $themeToggleJsOutputPath = $outputDir.'/'.$themeToggleJsRelativePath;
+            if (!is_dir(dirname($themeToggleJsOutputPath))) {
+                mkdir(dirname($themeToggleJsOutputPath), 0777, true);
+            }
+            copy(__DIR__.'/theme-toggle.js', $themeToggleJsOutputPath);
+
+            $darkModeCssRelativePath = 'assets/css/dark-mode.css';
+            $darkModeCssOutputPath = $outputDir.'/'.$darkModeCssRelativePath;
+            if (!is_dir(dirname($darkModeCssOutputPath))) {
+                mkdir(dirname($darkModeCssOutputPath), 0777, true);
+            }
+            copy(__DIR__.'/dark-mode.css', $darkModeCssOutputPath);
+
             // fix assets URLs to make them absolute (otherwise, they don't work in subdirectories)
             $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($outputDir));
 
@@ -81,6 +96,15 @@ use SymfonyDocsBuilder\DocBuilder;
                 $htmlContents = str_replace('src="assets/', 'src="'.$baseHref.'assets/', $htmlContents);
                 $htmlContents = str_replace('<img src="/_images/', '<img src="'.$baseHref.'_images/', $htmlContents);
 
+                // dark mode: apply the saved/preferred theme before first paint, and load its stylesheet
+                if (false === strpos($htmlContents, $darkModeCssRelativePath)) {
+                    $noFlashScript = '<script type="text/javascript">(function(){try{var t=localStorage.getItem(\'symfony-docs-theme\');'
+                        .'if(t===\'dark\'||(!t&&window.matchMedia&&window.matchMedia(\'(prefers-color-scheme: dark)\').matches)){'
+                        .'document.documentElement.setAttribute(\'data-theme\',\'dark\');}}catch(e){}})();</script>'."\n"
+                        .'    <link rel="stylesheet" href="'.$baseHref.$darkModeCssRelativePath.'" type="text/css">';
+                    $htmlContents = str_replace('<head>', '<head>'."\n".'    '.$noFlashScript, $htmlContents);
+                }
+
                 // append the branch name after each page's own title, e.g. "Symfony Documentation (8.0)"
                 if ('' !== $branchName) {
                     $branchSuffix = ' ('.$branchName.')';
@@ -97,6 +121,15 @@ use SymfonyDocsBuilder\DocBuilder;
                         },
                         $htmlContents,
                         1
+                    );
+                }
+
+                // load the light/dark theme toggle button/script on every page (skip if already injected)
+                if (false === strpos($htmlContents, $themeToggleJsRelativePath)) {
+                    $htmlContents = str_replace(
+                        '</body>',
+                        '    <script type="text/javascript" src="'.$baseHref.$themeToggleJsRelativePath.'"></script>'."\n".'</body>',
+                        $htmlContents
                     );
                 }
 
