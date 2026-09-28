@@ -109,7 +109,9 @@ use SymfonyDocsBuilder\DocBuilder;
                 // instead of the current page - sending the browser to a different page entirely.
                 $htmlContents = str_replace('href="assets/', 'href="'.$baseHref.'assets/', $htmlContents);
                 $htmlContents = str_replace('src="assets/', 'src="'.$baseHref.'assets/', $htmlContents);
-                $htmlContents = str_replace('<img src="/_images/', '<img src="'.$baseHref.'_images/', $htmlContents);
+                // the docs-builder emits image src values as "_images/foo.png" (no leading slash),
+                // so this needs the same per-page prefix as the assets above, not a literal-prefix strip
+                $htmlContents = str_replace('<img src="_images/', '<img src="'.$baseHref.'_images/', $htmlContents);
 
                 // dark mode: apply the saved/preferred theme before first paint, and load its stylesheet
                 if (false === strpos($htmlContents, $darkModeCssRelativePath)) {
@@ -171,9 +173,18 @@ use SymfonyDocsBuilder\DocBuilder;
             }
 
             foreach (new RegexIterator($iterator, '/^.+\.css/i', RegexIterator::GET_MATCH) as $match) {
-                $htmlFilePath = array_shift($match);
-                $htmlContents = file_get_contents($htmlFilePath);
-                file_put_contents($htmlFilePath, str_replace('fonts/', '../fonts/', $htmlContents));
+                $cssFilePath = array_shift($match);
+                $cssContents = file_get_contents($cssFilePath);
+                $cssContents = str_replace('fonts/', '../fonts/', $cssContents);
+
+                // the vendored rtd theme's stylesheet declares @font-face rules for Lato and
+                // Roboto Slab, but only ships the FontAwesome font files - those two font
+                // families 404 on every page load, and with font-display:block, briefly hide
+                // the page's text while the browser waits for a font that will never arrive.
+                // Strip them so text renders immediately with the next font in the CSS stack.
+                $cssContents = preg_replace('/@font-face\{font-family:(?:Lato|Roboto Slab);[^}]*\}/', '', $cssContents);
+
+                file_put_contents($cssFilePath, $cssContents);
             }
 
             $io->success(sprintf("The Symfony Docs were successfully built at %s", realpath($outputDir)));
