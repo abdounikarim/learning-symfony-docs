@@ -48,8 +48,21 @@
             '    display: flex;',
             '    flex-wrap: wrap;',
             '    justify-content: center;',
+            '    align-items: center;',
             '    gap: 0.75em;',
             '    margin: 2.5em 0 1em;',
+            '}',
+            '.page-nav-actions {',
+            '    margin: 2.5em 0 1em;',
+            '    text-align: center;',
+            '}',
+            '.page-nav-links {',
+            '    display: flex;',
+            '    flex-wrap: wrap;',
+            '    justify-content: center;',
+            '    align-items: center;',
+            '    gap: 0.75em;',
+            '    margin-top: 0.75em;',
             '}',
             '.last-read-btn {',
             '    display: inline-flex;',
@@ -132,8 +145,8 @@
             '.last-read-toast__message {',
             '    white-space: nowrap;',
             '}',
-            'a.link-read::after {',
-            '    content: " ✅";',
+            'a.link-has-badge::after {',
+            '    content: " " attr(data-badge);',
             '    font-size: 0.85em;',
             '}',
             '.reading-progress {',
@@ -144,6 +157,11 @@
             '    margin: 0.5em 0 1.8em;',
             '    font-weight: 600;',
             '    font-size: 0.95em;',
+            '}',
+            '.notes-total {',
+            '    font-weight: 600;',
+            '    font-size: 0.95em;',
+            '    margin: 0 0 1.8em;',
             '}',
             '.reading-progress-bar {',
             '    flex: 1 1 auto;',
@@ -158,6 +176,74 @@
             '    background: linear-gradient(90deg, #2fa365, #4cc484);',
             '    border-radius: 999px;',
             '    transition: width 0.4s ease;',
+            '}',
+            '.page-notes {',
+            '    margin: 0.5em 0 1.8em;',
+            '}',
+            '.page-notes-form {',
+            '    display: none;',
+            '    flex-direction: column;',
+            '    gap: 0.5em;',
+            '    margin-bottom: 1em;',
+            '}',
+            '.page-notes-form.page-notes-form--visible {',
+            '    display: flex;',
+            '}',
+            '.page-notes-form textarea {',
+            '    width: 100%;',
+            '    min-height: 4.5em;',
+            '    padding: 0.6em;',
+            '    border: 1px solid #c9ccd1;',
+            '    border-radius: 6px;',
+            '    font: inherit;',
+            '    color: inherit;',
+            '    background: transparent;',
+            '    resize: vertical;',
+            '    box-sizing: border-box;',
+            '}',
+            '.page-notes-form button {',
+            '    align-self: flex-end;',
+            '}',
+            '.page-note {',
+            '    background: #fff8db;',
+            '    border-left: 3px solid #f0c419;',
+            '    color: #6b5b0f;',
+            '    padding: 0.6em 0.9em;',
+            '    margin-bottom: 0.6em;',
+            '    border-radius: 4px;',
+            '    font-size: 0.95em;',
+            '    display: flex;',
+            '    align-items: flex-start;',
+            '    justify-content: space-between;',
+            '    gap: 0.75em;',
+            '}',
+            '.page-note__text {',
+            '    white-space: pre-wrap;',
+            '    flex: 1 1 auto;',
+            '}',
+            '.page-note__remove {',
+            '    flex: 0 0 auto;',
+            '    background: transparent;',
+            '    color: inherit;',
+            '    border: none;',
+            '    cursor: pointer;',
+            '    font-size: 1em;',
+            '    line-height: 1;',
+            '    padding: 0.15em 0.35em;',
+            '    border-radius: 4px;',
+            '    opacity: 0.7;',
+            '}',
+            '.page-note__remove:hover {',
+            '    opacity: 1;',
+            '    background: rgba(0, 0, 0, 0.08);',
+            '}',
+            '.page-note__remove--confirm {',
+            '    background: rgba(220, 53, 69, 0.15);',
+            '    color: #dc3545;',
+            '    opacity: 1;',
+            '}',
+            '.page-note__remove--confirm:hover {',
+            '    background: rgba(220, 53, 69, 0.25);',
             '}'
         ].join('\n');
 
@@ -174,6 +260,84 @@
 
     function storageKey() {
         return STORAGE_PREFIX + window.location.pathname;
+    }
+
+    // free-text notes, specific to the current page, persisted like the read status so they
+    // survive across sessions; a page can have any number of them
+    var NOTES_PREFIX = 'symfony-docs-notes:';
+
+    function notesStorageKey() {
+        return NOTES_PREFIX + window.location.pathname;
+    }
+
+    function readNotes() {
+        try {
+            var parsed = JSON.parse(window.localStorage.getItem(notesStorageKey()));
+
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function writeNotes(notes) {
+        window.localStorage.setItem(notesStorageKey(), JSON.stringify(notes));
+    }
+
+    function renderNotesList() {
+        var list = document.getElementById('page-notes-list');
+        if (!list) {
+            return;
+        }
+
+        list.innerHTML = '';
+        readNotes().forEach(function (note, index) {
+            var item = document.createElement('div');
+            item.className = 'page-note';
+
+            var text = document.createElement('span');
+            text.className = 'page-note__text';
+            text.textContent = note;
+            item.appendChild(text);
+
+            var removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'page-note__remove';
+            removeButton.innerHTML = '🗑️';
+            removeButton.setAttribute('aria-label', 'Remove this note');
+            removeButton.title = 'Remove this note';
+            removeButton.addEventListener('click', function () {
+                // first click arms a confirmation (auto-reverts after a few seconds);
+                // only the second click, while armed, actually removes the note
+                if (!removeButton.classList.contains('page-note__remove--confirm')) {
+                    removeButton.classList.add('page-note__remove--confirm');
+                    removeButton.innerHTML = '❓';
+                    removeButton.title = 'Click again to confirm removal';
+                    removeButton.setAttribute('aria-label', 'Click again to confirm removal');
+                    window.clearTimeout(removeButton._confirmTimer);
+                    removeButton._confirmTimer = window.setTimeout(function () {
+                        removeButton.classList.remove('page-note__remove--confirm');
+                        removeButton.innerHTML = '🗑️';
+                        removeButton.title = 'Remove this note';
+                        removeButton.setAttribute('aria-label', 'Remove this note');
+                    }, 3000);
+
+                    return;
+                }
+
+                window.clearTimeout(removeButton._confirmTimer);
+                var notes = readNotes();
+                notes.splice(index, 1);
+                writeNotes(notes);
+                renderNotesList();
+                decorateLinks();
+                renderNotesTotal();
+                showToast('🗑️ Note removed');
+            });
+            item.appendChild(removeButton);
+
+            list.appendChild(item);
+        });
     }
 
     // "Previous"/"Next" follow the pages actually visited in this browser tab (like a mini
@@ -269,8 +433,31 @@
         return paths;
     }
 
-    function decorateReadLinks() {
+    // same idea, but the number of notes saved on each page
+    function readAllNotesCounts() {
+        var counts = {};
+        for (var i = 0; i < window.localStorage.length; i++) {
+            var key = window.localStorage.key(i);
+            if (key && 0 === key.indexOf(NOTES_PREFIX)) {
+                try {
+                    var notes = JSON.parse(window.localStorage.getItem(key));
+                    if (Array.isArray(notes) && notes.length > 0) {
+                        counts[key.slice(NOTES_PREFIX.length)] = notes.length;
+                    }
+                } catch (e) {
+                    // ignore malformed entries
+                }
+            }
+        }
+
+        return counts;
+    }
+
+    // decorates every nav/content link with a "✅"/"📝<count>" badge when the page it points to
+    // has been read and/or has notes on it
+    function decorateLinks() {
         var readPaths = readPagePaths();
+        var noteCounts = readAllNotesCounts();
         var links = document.querySelectorAll('.wy-menu-vertical a[href], .rst-content a[href]');
 
         links.forEach(function (link) {
@@ -290,7 +477,21 @@
                 return;
             }
 
-            link.classList.toggle('link-read', !!readPaths[url.pathname]);
+            var badge = [];
+            if (readPaths[url.pathname]) {
+                badge.push('✅');
+            }
+            if (noteCounts[url.pathname]) {
+                badge.push('📝' + noteCounts[url.pathname]);
+            }
+
+            if (badge.length > 0) {
+                link.classList.add('link-has-badge');
+                link.setAttribute('data-badge', badge.join(' '));
+            } else {
+                link.classList.remove('link-has-badge');
+                link.removeAttribute('data-badge');
+            }
         });
     }
 
@@ -318,6 +519,30 @@
         if (fillEl) {
             fillEl.style.width = percent + '%';
         }
+    }
+
+    // home page only: total number of notes saved across the whole site
+    function renderNotesTotal() {
+        var progress = document.getElementById('reading-progress');
+        if (!progress) {
+            return;
+        }
+
+        var totalEl = document.getElementById('notes-total');
+        if (!totalEl) {
+            totalEl = document.createElement('p');
+            totalEl.id = 'notes-total';
+            totalEl.className = 'notes-total';
+            progress.insertAdjacentElement('afterend', totalEl);
+        }
+
+        var counts = readAllNotesCounts();
+        var total = Object.keys(counts).reduce(function (sum, key) {
+            return sum + counts[key];
+        }, 0);
+
+        totalEl.textContent = total > 0 ? '📝 ' + total + ' note' + (1 === total ? '' : 's') + ' across the site' : '';
+        totalEl.style.display = total > 0 ? '' : 'none';
     }
 
     function createToast() {
@@ -361,8 +586,9 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        decorateReadLinks();
+        decorateLinks();
         renderReadingProgress();
+        renderNotesTotal();
 
         var content = document.querySelector('[itemprop="articleBody"]');
         if (!content) {
@@ -383,6 +609,56 @@
             status.className = 'last-read-status';
             heading.insertAdjacentElement('afterend', status);
         }
+
+        // notes block: sits right after the title (and the "last read" date, if shown)
+        var notesForm = document.getElementById('page-notes-form');
+        if (!notesForm) {
+            var notesBlock = document.createElement('div');
+            notesBlock.id = 'page-notes';
+            notesBlock.className = 'page-notes';
+            status.insertAdjacentElement('afterend', notesBlock);
+
+            notesForm = document.createElement('form');
+            notesForm.id = 'page-notes-form';
+            notesForm.className = 'page-notes-form';
+
+            var notesTextarea = document.createElement('textarea');
+            notesTextarea.id = 'page-notes-textarea';
+            notesTextarea.placeholder = 'Type your note…';
+            notesForm.appendChild(notesTextarea);
+
+            var notesSubmit = document.createElement('button');
+            notesSubmit.type = 'submit';
+            notesSubmit.className = 'last-read-btn last-read-btn--read';
+            notesSubmit.innerHTML = '📝 Save note';
+            notesForm.appendChild(notesSubmit);
+
+            notesBlock.appendChild(notesForm);
+
+            var notesList = document.createElement('div');
+            notesList.id = 'page-notes-list';
+            notesBlock.appendChild(notesList);
+
+            notesForm.addEventListener('submit', function (event) {
+                event.preventDefault();
+                var text = notesTextarea.value.trim();
+                if (!text) {
+                    return;
+                }
+
+                var notes = readNotes();
+                notes.push(text);
+                writeNotes(notes);
+                notesTextarea.value = '';
+                notesForm.classList.remove('page-notes-form--visible');
+                renderNotesList();
+                decorateLinks();
+                renderNotesTotal();
+                showToast('📝 Note added');
+            });
+        }
+
+        renderNotesList();
 
         var actions = document.getElementById('last-read-actions');
         if (!actions) {
@@ -412,15 +688,47 @@
             actions.appendChild(readButton);
         }
 
-        // one row below the read/unread row: previous (if any) - home (unless this IS home) - next (if any)
+        // one row below the read/unread row: note - previous (if any) - home (unless this IS home) - next (if any)
         var isHomePage = !!document.getElementById('symfony-documentation');
         var pageNav = updateNavStack();
         var navActions = document.getElementById('page-nav-actions');
-        if (!navActions && (pageNav.prevPath || !isHomePage || pageNav.nextPath)) {
+        if (!navActions) {
             navActions = document.createElement('div');
             navActions.id = 'page-nav-actions';
-            navActions.className = 'last-read-actions';
+            navActions.className = 'page-nav-actions';
             content.appendChild(navActions);
+
+            var noteButton = document.createElement('button');
+            noteButton.id = 'page-note-button';
+            noteButton.type = 'button';
+            noteButton.className = 'last-read-btn last-read-btn--nav';
+            noteButton.innerHTML = '📝';
+            noteButton.setAttribute('aria-label', 'Add a note');
+            noteButton.title = 'Add a note';
+            noteButton.addEventListener('click', function () {
+                var form = document.getElementById('page-notes-form');
+                if (!form) {
+                    return;
+                }
+
+                var isVisible = form.classList.toggle('page-notes-form--visible');
+                if (isVisible) {
+                    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    var textarea = document.getElementById('page-notes-textarea');
+                    if (textarea) {
+                        textarea.focus();
+                    }
+                }
+            });
+            navActions.appendChild(noteButton);
+            navActions.appendChild(document.createElement('br'));
+
+            // the note button always sits alone above this row (see the <br> above), which
+            // holds previous/home/next - a plain flex row doesn't let a <br> force a line break
+            // (browsers keep it at zero size as a flex item), hence the separate block
+            var navLinks = document.createElement('div');
+            navLinks.className = 'page-nav-links';
+            navActions.appendChild(navLinks);
 
             if (pageNav.prevPath) {
                 var prevLink = document.createElement('a');
@@ -433,7 +741,7 @@
                 prevLink.addEventListener('click', function () {
                     setNavIntent('prev');
                 });
-                navActions.appendChild(prevLink);
+                navLinks.appendChild(prevLink);
             }
 
             if (!isHomePage) {
@@ -445,7 +753,7 @@
                 homeButton.innerHTML = '🏠';
                 homeButton.setAttribute('aria-label', 'Back to home');
                 homeButton.title = 'Back to home';
-                navActions.appendChild(homeButton);
+                navLinks.appendChild(homeButton);
             }
 
             if (pageNav.nextPath) {
@@ -459,7 +767,7 @@
                 nextLink.addEventListener('click', function () {
                     setNavIntent('next');
                 });
-                navActions.appendChild(nextLink);
+                navLinks.appendChild(nextLink);
             }
         }
 
@@ -485,7 +793,7 @@
             window.localStorage.setItem(storageKey(), new Date().toISOString());
             render();
             pulseStatus();
-            decorateReadLinks();
+            decorateLinks();
             renderReadingProgress();
             showToast('✅ Page marked as read');
         });
@@ -493,7 +801,7 @@
         unreadButton.addEventListener('click', function () {
             window.localStorage.removeItem(storageKey());
             render();
-            decorateReadLinks();
+            decorateLinks();
             renderReadingProgress();
             showToast('↩️ Page marked as unread');
         });
@@ -501,12 +809,19 @@
         render();
     });
 
-    // keep nav/content link markers and the reading-progress indicator in sync if another
-    // tab on this site marks a page read/unread
+    // keep nav/content link markers, the reading-progress indicator and the notes total in sync
+    // if another tab on this site marks a page read/unread or adds a note
     window.addEventListener('storage', function (event) {
-        if (event.key && 0 === event.key.indexOf(STORAGE_PREFIX)) {
-            decorateReadLinks();
+        if (!event.key) {
+            return;
+        }
+
+        if (0 === event.key.indexOf(STORAGE_PREFIX)) {
+            decorateLinks();
             renderReadingProgress();
+        } else if (0 === event.key.indexOf(NOTES_PREFIX)) {
+            decorateLinks();
+            renderNotesTotal();
         }
     });
 })();

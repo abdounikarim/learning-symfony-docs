@@ -136,6 +136,20 @@ html[data-theme="dark"] .last-read-btn--unread:hover {
     background-color: #363a3f;
 }
 
+html[data-theme="dark"] .page-note {
+    background: #3a3110;
+    border-left-color: #d4a017;
+    color: #f0d78c;
+}
+
+html[data-theme="dark"] .page-note__remove:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+html[data-theme="dark"] .page-notes-form textarea {
+    border-color: #4a4d51;
+}
+
 /* light/dark toggle button, present on every page */
 .theme-toggle-btn {
     position: fixed;
