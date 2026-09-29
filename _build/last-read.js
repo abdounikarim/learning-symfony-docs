@@ -16,6 +16,50 @@
         return -1 === idx ? null : CURRENT_SCRIPT_SRC.slice(0, idx);
     }
 
+    // build-time map of every page's own outgoing internal links (see build.php), used so a
+    // link's badge can show the LINKED page's own read/total link counts, not the current page's
+    var PAGE_LINKS_MANIFEST_PATH = 'assets/js/page-links.json';
+    var pageLinksManifest = null;
+    var pageLinksManifestPromise = null;
+
+    function siteRootPathname() {
+        var root = siteRootUrl();
+        if (!root) {
+            return null;
+        }
+        try {
+            return new URL(root).pathname;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function loadPageLinksManifest() {
+        if (pageLinksManifestPromise) {
+            return pageLinksManifestPromise;
+        }
+
+        var root = siteRootUrl();
+        if (!root) {
+            return Promise.resolve({});
+        }
+
+        pageLinksManifestPromise = fetch(root + PAGE_LINKS_MANIFEST_PATH)
+            .then(function (response) {
+                return response.ok ? response.json() : {};
+            })
+            .catch(function () {
+                return {};
+            })
+            .then(function (data) {
+                pageLinksManifest = data;
+
+                return data;
+            });
+
+        return pageLinksManifestPromise;
+    }
+
     function injectStyles() {
         if (document.getElementById(STYLE_ID)) {
             return;
@@ -353,11 +397,23 @@
     }
 
     // decorates every nav/content link with a "✅"/"📝<count>" badge when the page it points to
-    // has been read and/or has notes on it
+    // has been read and/or has notes on it, plus "<read>/<total>" counting how many of THAT
+    // linked page's own internal links point to pages already read - a per-link fact (each link
+    // on the page can show a different pair, based on where it points), not a page-level one
     function decorateLinks() {
+        if (!pageLinksManifest) {
+            loadPageLinksManifest().then(decorateLinks);
+
+            return;
+        }
+
         var readPaths = readPagePaths();
         var noteCounts = readAllNotesCounts();
-        var links = document.querySelectorAll('.wy-menu-vertical a[href], .rst-content a[href]');
+        var rootPathname = siteRootPathname() || '/';
+        // :not(.last-read-btn) excludes our own injected chrome (back-to-home, previous, next) -
+        // those live inside .rst-content too (appended to the same content container), but they're
+        // navigation UI, not actual document links, and shouldn't count as part of the page's content
+        var links = document.querySelectorAll('.wy-menu-vertical a[href]:not(.last-read-btn), .rst-content a[href]:not(.last-read-btn)');
 
         links.forEach(function (link) {
             var rawHref = link.getAttribute('href');
@@ -382,6 +438,20 @@
             }
             if (noteCounts[url.pathname]) {
                 badge.push('📝' + noteCounts[url.pathname]);
+            }
+
+            // manifest keys are site-root-relative (e.g. "quick_tour/flex_recipes.html"),
+            // independent of where the site is actually deployed - strip that deployed prefix
+            // off this link's own pathname to look its target page up in the manifest
+            var targetRelativePath = 0 === url.pathname.indexOf(rootPathname)
+                ? url.pathname.slice(rootPathname.length)
+                : url.pathname.replace(/^\//, '');
+            var targetOwnLinks = pageLinksManifest[targetRelativePath];
+            if (targetOwnLinks && targetOwnLinks.length > 0) {
+                var targetReadCount = targetOwnLinks.filter(function (relativePath) {
+                    return !!readPaths[rootPathname + relativePath];
+                }).length;
+                badge.push(targetReadCount + '/' + targetOwnLinks.length);
             }
 
             if (badge.length > 0) {
