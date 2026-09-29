@@ -85,6 +85,25 @@ use SymfonyDocsBuilder\DocBuilder;
             }
             copy(__DIR__.'/last-read.js', $lastReadJsOutputPath);
 
+            // PWA: icons, manifest, favicon and the service-worker registration script
+            $pwaIconsOutputDir = $outputDir.'/assets/icons';
+            if (!is_dir($pwaIconsOutputDir)) {
+                mkdir($pwaIconsOutputDir, 0777, true);
+            }
+            foreach (glob(__DIR__.'/icons/*.png') as $iconSourcePath) {
+                copy($iconSourcePath, $pwaIconsOutputDir.'/'.basename($iconSourcePath));
+            }
+
+            copy(__DIR__.'/favicon.ico', $outputDir.'/favicon.ico');
+            copy(__DIR__.'/manifest.json', $outputDir.'/manifest.json');
+
+            $pwaRegisterJsRelativePath = 'assets/js/pwa-register.js';
+            $pwaRegisterJsOutputPath = $outputDir.'/'.$pwaRegisterJsRelativePath;
+            if (!is_dir(dirname($pwaRegisterJsOutputPath))) {
+                mkdir(dirname($pwaRegisterJsOutputPath), 0777, true);
+            }
+            copy(__DIR__.'/pwa-register.js', $pwaRegisterJsOutputPath);
+
             // total number of generated pages, shown by the reading-progress indicator on the home page
             $totalPages = iterator_count(new RegexIterator(
                 new RecursiveIteratorIterator(new RecursiveDirectoryIterator($outputDir)),
@@ -169,6 +188,23 @@ use SymfonyDocsBuilder\DocBuilder;
                     );
                 }
 
+                // PWA: manifest + icons + theme color in <head>, service-worker registration before </body>
+                if (false === strpos($htmlContents, 'rel="manifest"')) {
+                    $pwaHeadTags = '<link rel="manifest" href="'.$baseHref.'manifest.json">'."\n"
+                        .'    <link rel="icon" href="'.$baseHref.'favicon.ico">'."\n"
+                        .'    <link rel="apple-touch-icon" href="'.$baseHref.'assets/icons/icon-192.png">'."\n"
+                        .'    <meta name="theme-color" content="#000000">';
+                    $htmlContents = str_replace('<head>', '<head>'."\n".'    '.$pwaHeadTags, $htmlContents);
+                }
+
+                if (false === strpos($htmlContents, $pwaRegisterJsRelativePath)) {
+                    $htmlContents = str_replace(
+                        '</body>',
+                        '    <script type="text/javascript" src="'.$baseHref.$pwaRegisterJsRelativePath.'"></script>'."\n".'</body>',
+                        $htmlContents
+                    );
+                }
+
                 file_put_contents($htmlFilePath, $htmlContents);
             }
 
@@ -186,6 +222,29 @@ use SymfonyDocsBuilder\DocBuilder;
 
                 file_put_contents($cssFilePath, $cssContents);
             }
+
+            // PWA: generate the service worker last, once every other output file exists, so its
+            // precache list (and therefore full offline support) covers the finished build
+            $precacheUrls = [];
+            $swIterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($outputDir, RecursiveDirectoryIterator::SKIP_DOTS));
+            foreach ($swIterator as $fileInfo) {
+                if (!$fileInfo->isFile()) {
+                    continue;
+                }
+                $relativePath = str_replace('\\', '/', substr($fileInfo->getPathname(), \strlen($outputDir) + 1));
+                // skip the service worker itself and the docs-builder's internal Twig cache
+                // (compiled template PHP files, not meant to be fetched by visitors)
+                if ('sw.js' === $relativePath || 0 === strpos($relativePath, '.cache/')) {
+                    continue;
+                }
+                $precacheUrls[] = $relativePath;
+            }
+            sort($precacheUrls);
+
+            $swContents = file_get_contents(__DIR__.'/sw.js');
+            $swContents = str_replace('__CACHE_VERSION__', date('YmdHis'), $swContents);
+            $swContents = str_replace('__PRECACHE_URLS__', json_encode($precacheUrls, JSON_UNESCAPED_SLASHES), $swContents);
+            file_put_contents($outputDir.'/sw.js', $swContents);
 
             $io->success(sprintf("The Symfony Docs were successfully built at %s", realpath($outputDir)));
         } else {
