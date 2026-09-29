@@ -202,14 +202,79 @@
             '.page-notes {',
             '    margin: 0.5em 0 1.8em;',
             '}',
-            '.page-notes-form {',
+            '.page-notes-fab {',
+            '    position: fixed;',
+            '    right: 1.2em;',
+            '    bottom: 1.2em;',
+            '    z-index: 10000;',
+            '    width: 3.2em;',
+            '    height: 3.2em;',
+            '    display: flex;',
+            '    align-items: center;',
+            '    justify-content: center;',
+            '    border: none;',
+            '    border-radius: 50%;',
+            '    background: #2980b9;',
+            '    color: #fff;',
+            '    font-size: 1.4em;',
+            '    cursor: pointer;',
+            '    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);',
+            '    transition: transform 0.1s ease, box-shadow 0.1s ease;',
+            '}',
+            '.page-notes-fab:hover {',
+            '    transform: translateY(-2px);',
+            '    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3);',
+            '}',
+            '.page-notes-modal-overlay {',
+            '    position: fixed;',
+            '    inset: 0;',
+            '    z-index: 10001;',
             '    display: none;',
-            '    flex-direction: column;',
-            '    gap: 0.5em;',
+            '    align-items: center;',
+            '    justify-content: center;',
+            '    background: rgba(0, 0, 0, 0.5);',
+            '    padding: 1.5em;',
+            '}',
+            '.page-notes-modal-overlay.page-notes-modal-overlay--visible {',
+            '    display: flex;',
+            '}',
+            '.page-notes-modal {',
+            '    background: #fff;',
+            '    color: inherit;',
+            '    border-radius: 10px;',
+            '    padding: 1.5em;',
+            '    max-width: 480px;',
+            '    width: 100%;',
+            '    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);',
+            '}',
+            '.page-notes-modal__header {',
+            '    display: flex;',
+            '    align-items: center;',
+            '    justify-content: space-between;',
             '    margin-bottom: 1em;',
             '}',
-            '.page-notes-form.page-notes-form--visible {',
+            '.page-notes-modal__title {',
+            '    font-weight: 700;',
+            '    font-size: 1.05em;',
+            '}',
+            '.page-notes-modal__close {',
+            '    background: transparent;',
+            '    border: none;',
+            '    cursor: pointer;',
+            '    font-size: 1.2em;',
+            '    line-height: 1;',
+            '    padding: 0.2em 0.4em;',
+            '    border-radius: 4px;',
+            '    opacity: 0.7;',
+            '}',
+            '.page-notes-modal__close:hover {',
+            '    opacity: 1;',
+            '    background: rgba(0, 0, 0, 0.08);',
+            '}',
+            '.page-notes-form {',
             '    display: flex;',
+            '    flex-direction: column;',
+            '    gap: 0.5em;',
             '}',
             '.page-notes-form textarea {',
             '    width: 100%;',
@@ -579,17 +644,57 @@
             heading.insertAdjacentElement('afterend', status);
         }
 
-        // notes block: sits right after the title (and the "last read" date, if shown)
-        var notesForm = document.getElementById('page-notes-form');
-        if (!notesForm) {
-            var notesBlock = document.createElement('div');
+        // notes list: sits right after the title (and the "last read" date, if shown) - unchanged.
+        // adding a note now happens in a modal (see the floating button below), not inline here.
+        var notesBlock = document.getElementById('page-notes');
+        if (!notesBlock) {
+            notesBlock = document.createElement('div');
             notesBlock.id = 'page-notes';
             notesBlock.className = 'page-notes';
             status.insertAdjacentElement('afterend', notesBlock);
 
-            notesForm = document.createElement('form');
+            var notesList = document.createElement('div');
+            notesList.id = 'page-notes-list';
+            notesBlock.appendChild(notesList);
+        }
+
+        renderNotesList();
+
+        // add-note modal, opened via the floating button - built once, appended to <body> so its
+        // fixed-position overlay isn't affected by any ancestor's layout
+        var notesModalOverlay = document.getElementById('page-notes-modal-overlay');
+        if (!notesModalOverlay) {
+            notesModalOverlay = document.createElement('div');
+            notesModalOverlay.id = 'page-notes-modal-overlay';
+            notesModalOverlay.className = 'page-notes-modal-overlay';
+            document.body.appendChild(notesModalOverlay);
+
+            var notesModal = document.createElement('div');
+            notesModal.className = 'page-notes-modal';
+            notesModal.setAttribute('role', 'dialog');
+            notesModal.setAttribute('aria-modal', 'true');
+            notesModalOverlay.appendChild(notesModal);
+
+            var notesModalHeader = document.createElement('div');
+            notesModalHeader.className = 'page-notes-modal__header';
+            notesModal.appendChild(notesModalHeader);
+
+            var notesModalTitle = document.createElement('span');
+            notesModalTitle.className = 'page-notes-modal__title';
+            notesModalTitle.textContent = '📝 Add a note';
+            notesModalHeader.appendChild(notesModalTitle);
+
+            var notesModalClose = document.createElement('button');
+            notesModalClose.type = 'button';
+            notesModalClose.className = 'page-notes-modal__close';
+            notesModalClose.innerHTML = '✖️';
+            notesModalClose.setAttribute('aria-label', 'Close');
+            notesModalHeader.appendChild(notesModalClose);
+
+            var notesForm = document.createElement('form');
             notesForm.id = 'page-notes-form';
             notesForm.className = 'page-notes-form';
+            notesModal.appendChild(notesForm);
 
             var notesTextarea = document.createElement('textarea');
             notesTextarea.id = 'page-notes-textarea';
@@ -602,11 +707,21 @@
             notesSubmit.innerHTML = '📝 Save note';
             notesForm.appendChild(notesSubmit);
 
-            notesBlock.appendChild(notesForm);
+            var closeNotesModal = function () {
+                notesModalOverlay.classList.remove('page-notes-modal-overlay--visible');
+            };
 
-            var notesList = document.createElement('div');
-            notesList.id = 'page-notes-list';
-            notesBlock.appendChild(notesList);
+            notesModalClose.addEventListener('click', closeNotesModal);
+            notesModalOverlay.addEventListener('click', function (event) {
+                if (event.target === notesModalOverlay) {
+                    closeNotesModal();
+                }
+            });
+            document.addEventListener('keydown', function (event) {
+                if ('Escape' === event.key && notesModalOverlay.classList.contains('page-notes-modal-overlay--visible')) {
+                    closeNotesModal();
+                }
+            });
 
             notesForm.addEventListener('submit', function (event) {
                 event.preventDefault();
@@ -619,7 +734,7 @@
                 notes.push(text);
                 writeNotes(notes);
                 notesTextarea.value = '';
-                notesForm.classList.remove('page-notes-form--visible');
+                closeNotesModal();
                 renderNotesList();
                 decorateLinks();
                 renderNotesTotal();
@@ -627,9 +742,28 @@
             });
         }
 
-        renderNotesList();
+        // floating notes button: fixed at the bottom right, scrolls along with the page, opens the modal
+        var notesFab = document.getElementById('page-notes-fab');
+        if (!notesFab) {
+            notesFab = document.createElement('button');
+            notesFab.id = 'page-notes-fab';
+            notesFab.type = 'button';
+            notesFab.className = 'page-notes-fab';
+            notesFab.innerHTML = '📝';
+            notesFab.setAttribute('aria-label', 'Add a note');
+            notesFab.title = 'Add a note';
+            notesFab.addEventListener('click', function () {
+                notesModalOverlay.classList.add('page-notes-modal-overlay--visible');
+                var textarea = document.getElementById('page-notes-textarea');
+                if (textarea) {
+                    textarea.focus();
+                }
+            });
+            document.body.appendChild(notesFab);
+        }
 
-        // single row: note - home (unless this IS home) - mark as read/unread (state-dependent icon)
+        // single row: home (unless this IS home) - mark as read/unread (state-dependent icon).
+        // the note button no longer lives here - see the floating button/modal above.
         var isHomePage = !!document.getElementById('symfony-documentation');
         var navActions = document.getElementById('page-nav-actions');
         if (!navActions) {
@@ -637,30 +771,6 @@
             navActions.id = 'page-nav-actions';
             navActions.className = 'page-nav-actions';
             content.appendChild(navActions);
-
-            var noteButton = document.createElement('button');
-            noteButton.id = 'page-note-button';
-            noteButton.type = 'button';
-            noteButton.className = 'last-read-btn last-read-btn--nav';
-            noteButton.innerHTML = '📝';
-            noteButton.setAttribute('aria-label', 'Add a note');
-            noteButton.title = 'Add a note';
-            noteButton.addEventListener('click', function () {
-                var form = document.getElementById('page-notes-form');
-                if (!form) {
-                    return;
-                }
-
-                var isVisible = form.classList.toggle('page-notes-form--visible');
-                if (isVisible) {
-                    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    var textarea = document.getElementById('page-notes-textarea');
-                    if (textarea) {
-                        textarea.focus();
-                    }
-                }
-            });
-            navActions.appendChild(noteButton);
 
             if (!isHomePage) {
                 var homeButton = document.createElement('a');

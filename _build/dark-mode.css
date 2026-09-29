@@ -141,6 +141,15 @@ html[data-theme="dark"] .page-notes-form textarea {
     border-color: #4a4d51;
 }
 
+html[data-theme="dark"] .page-notes-modal {
+    background: #26292d;
+    color: #d4d4d4;
+}
+
+html[data-theme="dark"] .page-notes-modal__close:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
 /* light/dark toggle button, present on every page */
 .theme-toggle-btn {
     position: fixed;
