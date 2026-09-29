@@ -127,15 +127,6 @@ html[data-theme="dark"] .last-read-status {
     color: #7fd99f;
 }
 
-html[data-theme="dark"] .last-read-btn--unread {
-    background-color: #2a2d31;
-    color: #d4d4d4;
-}
-
-html[data-theme="dark"] .last-read-btn--unread:hover {
-    background-color: #363a3f;
-}
-
 html[data-theme="dark"] .page-note {
     background: #3a3110;
     border-left-color: #d4a017;

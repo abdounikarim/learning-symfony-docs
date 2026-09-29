@@ -44,25 +44,13 @@
             '    0% { background-color: #b8ecc9; }',
             '    100% { background-color: #e6f6ec; }',
             '}',
-            '.last-read-actions {',
-            '    display: flex;',
-            '    flex-wrap: wrap;',
-            '    justify-content: center;',
-            '    align-items: center;',
-            '    gap: 0.75em;',
-            '    margin: 2.5em 0 1em;',
-            '}',
             '.page-nav-actions {',
-            '    margin: 2.5em 0 1em;',
-            '    text-align: center;',
-            '}',
-            '.page-nav-links {',
             '    display: flex;',
             '    flex-wrap: wrap;',
             '    justify-content: center;',
             '    align-items: center;',
             '    gap: 0.75em;',
-            '    margin-top: 0.75em;',
+            '    margin: 2.5em 0 1em;',
             '}',
             '.last-read-btn {',
             '    display: inline-flex;',
@@ -92,14 +80,6 @@
             '.last-read-btn--read:hover {',
             '    background-color: #278a56;',
             '}',
-            '.last-read-btn--unread {',
-            '    background-color: #f1f1f1;',
-            '    color: #55606c;',
-            '}',
-            '.last-read-btn--unread:hover {',
-            '    background-color: #e3e5e8;',
-            '}',
-            '.last-read-btn--home,',
             '.last-read-btn--nav {',
             '    background-color: transparent;',
             '    color: inherit;',
@@ -109,12 +89,10 @@
             '    line-height: 1;',
             '    box-shadow: none;',
             '}',
-            '.last-read-btn--home:hover,',
             '.last-read-btn--nav:hover {',
             '    background-color: rgba(127, 127, 127, 0.15);',
             '    box-shadow: none;',
             '}',
-            '.last-read-btn--home:active,',
             '.last-read-btn--nav:active {',
             '    box-shadow: none;',
             '}',
@@ -338,85 +316,6 @@
 
             list.appendChild(item);
         });
-    }
-
-    // "Previous"/"Next" follow the pages actually visited in this browser tab (like a mini
-    // back/forward history), not the docs' table of contents. Tracked as a path stack + pointer
-    // in sessionStorage, so it's scoped to this tab and cleared when it closes.
-    var NAV_STACK_KEY = 'symfony-docs-nav-stack';
-    var NAV_INTENT_KEY = 'symfony-docs-nav-intent';
-    var NAV_STACK_LIMIT = 50;
-
-    function readNavStack() {
-        try {
-            var parsed = JSON.parse(window.sessionStorage.getItem(NAV_STACK_KEY));
-            if (parsed && Array.isArray(parsed.stack) && 'number' === typeof parsed.pointer) {
-                return parsed;
-            }
-        } catch (e) {
-            // ignore malformed/missing state
-        }
-
-        return { stack: [], pointer: -1 };
-    }
-
-    function writeNavStack(state) {
-        try {
-            window.sessionStorage.setItem(NAV_STACK_KEY, JSON.stringify(state));
-        } catch (e) {
-            // sessionStorage unavailable (e.g. private browsing) - previous/next just won't show
-        }
-    }
-
-    function setNavIntent(intent) {
-        try {
-            window.sessionStorage.setItem(NAV_INTENT_KEY, intent);
-        } catch (e) {
-            // ignore
-        }
-    }
-
-    function takeNavIntent() {
-        try {
-            var intent = window.sessionStorage.getItem(NAV_INTENT_KEY);
-            window.sessionStorage.removeItem(NAV_INTENT_KEY);
-
-            return intent;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    // updates the session nav stack for this page load and returns the paths to show
-    // "previous"/"next" buttons for (null when there is nothing to go back/forward to)
-    function updateNavStack() {
-        var state = readNavStack();
-        var currentPath = window.location.pathname;
-        var intent = takeNavIntent();
-
-        if ('prev' === intent && state.pointer > 0) {
-            state.pointer -= 1;
-        } else if ('next' === intent && state.pointer < state.stack.length - 1) {
-            state.pointer += 1;
-        } else if (state.stack[state.pointer] !== currentPath) {
-            // a genuine new navigation: drop any "forward" entries past here, then append
-            state.stack = state.stack.slice(0, state.pointer + 1);
-            state.stack.push(currentPath);
-            state.pointer = state.stack.length - 1;
-
-            if (state.stack.length > NAV_STACK_LIMIT) {
-                var overflow = state.stack.length - NAV_STACK_LIMIT;
-                state.stack = state.stack.slice(overflow);
-                state.pointer -= overflow;
-            }
-        }
-
-        writeNavStack(state);
-
-        return {
-            prevPath: state.pointer > 0 ? state.stack[state.pointer - 1] : null,
-            nextPath: state.pointer < state.stack.length - 1 ? state.stack[state.pointer + 1] : null
-        };
     }
 
     // every page's read status lives in the same origin's localStorage, so any page
@@ -660,37 +559,8 @@
 
         renderNotesList();
 
-        var actions = document.getElementById('last-read-actions');
-        if (!actions) {
-            actions = document.createElement('div');
-            actions.id = 'last-read-actions';
-            actions.className = 'last-read-actions';
-            content.appendChild(actions);
-        }
-
-        var unreadButton = document.getElementById('mark-as-unread-button');
-        if (!unreadButton) {
-            unreadButton = document.createElement('button');
-            unreadButton.id = 'mark-as-unread-button';
-            unreadButton.type = 'button';
-            unreadButton.className = 'last-read-btn last-read-btn--unread';
-            unreadButton.innerHTML = '↩️ Mark as unread';
-            actions.appendChild(unreadButton);
-        }
-
-        var readButton = document.getElementById('mark-as-read-button');
-        if (!readButton) {
-            readButton = document.createElement('button');
-            readButton.id = 'mark-as-read-button';
-            readButton.type = 'button';
-            readButton.className = 'last-read-btn last-read-btn--read';
-            readButton.innerHTML = '✅ Mark as read';
-            actions.appendChild(readButton);
-        }
-
-        // one row below the read/unread row: note - previous (if any) - home (unless this IS home) - next (if any)
+        // single row: note - home (unless this IS home) - mark as read/unread (state-dependent icon)
         var isHomePage = !!document.getElementById('symfony-documentation');
-        var pageNav = updateNavStack();
         var navActions = document.getElementById('page-nav-actions');
         if (!navActions) {
             navActions = document.createElement('div');
@@ -721,54 +591,27 @@
                 }
             });
             navActions.appendChild(noteButton);
-            navActions.appendChild(document.createElement('br'));
-
-            // the note button always sits alone above this row (see the <br> above), which
-            // holds previous/home/next - a plain flex row doesn't let a <br> force a line break
-            // (browsers keep it at zero size as a flex item), hence the separate block
-            var navLinks = document.createElement('div');
-            navLinks.className = 'page-nav-links';
-            navActions.appendChild(navLinks);
-
-            if (pageNav.prevPath) {
-                var prevLink = document.createElement('a');
-                prevLink.id = 'page-nav-prev';
-                prevLink.href = pageNav.prevPath;
-                prevLink.className = 'last-read-btn last-read-btn--nav';
-                prevLink.innerHTML = '⬅️';
-                prevLink.setAttribute('aria-label', 'Previous page');
-                prevLink.title = 'Previous page';
-                prevLink.addEventListener('click', function () {
-                    setNavIntent('prev');
-                });
-                navLinks.appendChild(prevLink);
-            }
 
             if (!isHomePage) {
                 var homeButton = document.createElement('a');
                 homeButton.id = 'back-to-home-button';
                 var root = siteRootUrl();
                 homeButton.href = (null !== root ? root : '') + 'index.html';
-                homeButton.className = 'last-read-btn last-read-btn--home';
+                homeButton.className = 'last-read-btn last-read-btn--nav';
                 homeButton.innerHTML = '🏠';
                 homeButton.setAttribute('aria-label', 'Back to home');
                 homeButton.title = 'Back to home';
-                navLinks.appendChild(homeButton);
+                navActions.appendChild(homeButton);
             }
+        }
 
-            if (pageNav.nextPath) {
-                var nextLink = document.createElement('a');
-                nextLink.id = 'page-nav-next';
-                nextLink.href = pageNav.nextPath;
-                nextLink.className = 'last-read-btn last-read-btn--nav';
-                nextLink.innerHTML = '➡️';
-                nextLink.setAttribute('aria-label', 'Next page');
-                nextLink.title = 'Next page';
-                nextLink.addEventListener('click', function () {
-                    setNavIntent('next');
-                });
-                navLinks.appendChild(nextLink);
-            }
+        var toggleReadButton = document.getElementById('toggle-read-button');
+        if (!toggleReadButton) {
+            toggleReadButton = document.createElement('button');
+            toggleReadButton.id = 'toggle-read-button';
+            toggleReadButton.type = 'button';
+            toggleReadButton.className = 'last-read-btn last-read-btn--nav';
+            navActions.appendChild(toggleReadButton);
         }
 
         function render() {
@@ -776,9 +619,15 @@
             if (timestamp) {
                 status.textContent = 'Last read at ' + formatDate(new Date(timestamp)) + ' ✅';
                 status.style.display = '';
+                toggleReadButton.innerHTML = '↩️';
+                toggleReadButton.setAttribute('aria-label', 'Mark as unread');
+                toggleReadButton.title = 'Mark as unread';
             } else {
                 status.textContent = '';
                 status.style.display = 'none';
+                toggleReadButton.innerHTML = '✅';
+                toggleReadButton.setAttribute('aria-label', 'Mark as read');
+                toggleReadButton.title = 'Mark as read';
             }
         }
 
@@ -789,21 +638,21 @@
             status.classList.add('last-read-status--pulse');
         }
 
-        readButton.addEventListener('click', function () {
-            window.localStorage.setItem(storageKey(), new Date().toISOString());
-            render();
-            pulseStatus();
-            decorateLinks();
-            renderReadingProgress();
-            showToast('✅ Page marked as read');
-        });
-
-        unreadButton.addEventListener('click', function () {
-            window.localStorage.removeItem(storageKey());
-            render();
-            decorateLinks();
-            renderReadingProgress();
-            showToast('↩️ Page marked as unread');
+        toggleReadButton.addEventListener('click', function () {
+            if (window.localStorage.getItem(storageKey())) {
+                window.localStorage.removeItem(storageKey());
+                render();
+                decorateLinks();
+                renderReadingProgress();
+                showToast('↩️ Page marked as unread');
+            } else {
+                window.localStorage.setItem(storageKey(), new Date().toISOString());
+                render();
+                pulseStatus();
+                decorateLinks();
+                renderReadingProgress();
+                showToast('✅ Page marked as read');
+            }
         });
 
         render();
