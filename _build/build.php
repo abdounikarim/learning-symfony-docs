@@ -10,6 +10,47 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use SymfonyDocsBuilder\BuildConfig;
 use SymfonyDocsBuilder\DocBuilder;
 
+// resolves a content link's href (e.g. "../setup.html#symfony-packs") against the directory of
+// the page it was found on, into a normalized path relative to the output root (no leading "/",
+// no query/fragment) - or null if it's not an internal doc link (external URL, mailto:, "#...").
+// used to build the page-links map that lets last-read.js show, next to each link, the *linked*
+// page's own read/total internal-link counts.
+function resolveInternalLinkPath(string $currentDir, string $href): ?string
+{
+    $href = trim($href);
+    if ('' === $href || '#' === $href[0]) {
+        return null;
+    }
+
+    if (1 === preg_match('#^([a-z][a-z0-9+.-]*:)?//#i', $href) || 0 === stripos($href, 'mailto:') || 0 === stripos($href, 'tel:')) {
+        return null;
+    }
+
+    $path = preg_replace('/[?#].*$/', '', $href);
+    if ('' === $path) {
+        return null;
+    }
+
+    $combined = '' === $currentDir ? $path : $currentDir.'/'.$path;
+    if ('/' === $combined[0]) {
+        $combined = substr($combined, 1);
+    }
+
+    $segments = [];
+    foreach (explode('/', $combined) as $segment) {
+        if ('' === $segment || '.' === $segment) {
+            continue;
+        }
+        if ('..' === $segment) {
+            array_pop($segments);
+            continue;
+        }
+        $segments[] = $segment;
+    }
+
+    return implode('/', $segments);
+}
+
 (new Application('Symfony Docs Builder', '1.0'))
     ->register('build-docs')
     ->addOption('generate-fjson-files', null, InputOption::VALUE_NONE, 'Use this option to generate docs both in HTML and JSON formats')
@@ -95,6 +136,10 @@ use SymfonyDocsBuilder\DocBuilder;
             // fix assets URLs to make them absolute (otherwise, they don't work in subdirectories)
             $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($outputDir));
 
+            // maps each page (relative path) to the list of internal doc links found in its
+            // content, e.g. "quick_tour/flex_recipes.html" => ["setup.html", "quick_tour/the_architecture.html"]
+            $pageLinksMap = [];
+
             foreach (new RegexIterator($iterator, '/^.+\.html$/i', RegexIterator::GET_MATCH) as $match) {
                 $htmlFilePath = array_shift($match);
                 $htmlContents = file_get_contents($htmlFilePath);
@@ -102,6 +147,24 @@ use SymfonyDocsBuilder\DocBuilder;
                 $htmlRelativeFilePath = str_replace($outputDir.'/', '', $htmlFilePath);
                 $subdirLevel = substr_count($htmlRelativeFilePath, '/');
                 $baseHref = str_repeat('../', $subdirLevel);
+
+                // record this page's own internal links before any rewriting below, since content
+                // link hrefs (unlike asset/image srcs) are left untouched by that rewriting
+                $linkDom = new DOMDocument();
+                libxml_use_internal_errors(true);
+                $linkDom->loadHTML('<?xml encoding="utf-8"?>'.$htmlContents);
+                libxml_clear_errors();
+                $linkXpath = new DOMXPath($linkDom);
+                $currentDir = \dirname($htmlRelativeFilePath);
+                $currentDir = '.' === $currentDir ? '' : $currentDir;
+                $pageTargets = [];
+                foreach ($linkXpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " rst-content ")]//a[@href]') as $anchorNode) {
+                    $resolved = resolveInternalLinkPath($currentDir, $anchorNode->getAttribute('href'));
+                    if (null !== $resolved) {
+                        $pageTargets[] = $resolved;
+                    }
+                }
+                $pageLinksMap[$htmlRelativeFilePath] = $pageTargets;
 
                 // make relative asset URLs work from any subdirectory. Deliberately NOT using a <base> tag for
                 // this: a <base> with a non-empty path silently breaks every plain "#anchor" link on the page
@@ -171,6 +234,10 @@ use SymfonyDocsBuilder\DocBuilder;
 
                 file_put_contents($htmlFilePath, $htmlContents);
             }
+
+            // used by last-read.js to show, next to each link, the *linked* page's own
+            // read/total internal-link counts (see resolveInternalLinkPath() above)
+            file_put_contents($outputDir.'/assets/js/page-links.json', json_encode($pageLinksMap, JSON_UNESCAPED_SLASHES));
 
             foreach (new RegexIterator($iterator, '/^.+\.css/i', RegexIterator::GET_MATCH) as $match) {
                 $cssFilePath = array_shift($match);
